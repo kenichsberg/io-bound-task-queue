@@ -4,7 +4,7 @@ A task queue implementation with a flexible retry functionality.
 
 Requires JDK >21, since it uses Virtual Threads to execute each task.
 
-Each element of the queue is supposed to be IO-bound task, and is automatically dequeued and executed.
+Each queue element is supposed to be an IO-bound task and is automatically dequeued and executed.
 
 ## Example
 ```java
@@ -25,7 +25,7 @@ concurrentIOBoundTaskQueue.offer(task, 500, TimeUnit.MILLISECONDS);
 ```
 
 ## With retries
-`RetryableTask` can be used for retrying task.
+`RetryableTask` can be used to retry tasks.
 
 In `OnSuccess` and `OnFailure` of `RetryableTaskCallback`, the first parameter is the `RetryableTask` itself which is being executed.
 You can rerun it on arbitrary conditions as you define.
