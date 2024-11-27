@@ -1,4 +1,4 @@
-package com.github.kenichsberg.RetryQueue;
+package com.github.kenichsberg.IOBoundTaskQueue;
 
 import org.junit.jupiter.api.*;
 import static org.junit.jupiter.api.Assumptions.*;
@@ -7,12 +7,12 @@ import java.lang.String;
 import java.util.Objects;
 import java.util.concurrent.*;
 
-class RetryQueueTest {
-    RetryQueue retryQueue = new RetryQueue();
+class ConcurrentIOBoundTaskQueueTest {
+    ConcurrentIOBoundTaskQueue concurrentIOBoundTaskQueue = new ConcurrentIOBoundTaskQueue();
     final BlockingQueue<String> results = new LinkedBlockingQueue<>();
-    final RetryableCallback<String> callback = new RetryableCallback<>() {
+    final RetryableTaskCallback<String> callback = new RetryableTaskCallback<>() {
         @Override
-        public void onSuccess(Retryable<String> retryable, String result) {
+        public void onSuccess(RetryableTask<String> task, String result) {
             boolean isSuccess = result.equals("Success");
             if (isSuccess) {
                 try {
@@ -24,33 +24,33 @@ class RetryQueueTest {
         }
 
         @Override
-        public void onFailure(Retryable<String> retryable, Throwable throwable) {
+        public void onFailure(RetryableTask<String> task, Throwable throwable) {
             try {
                 results.put(throwable.getMessage());
+                concurrentIOBoundTaskQueue.put(task);
             } catch(InterruptedException e) {
                 System.out.println(e.getMessage());
             }
-            retryable.run();
         }
     };
 
     @BeforeEach
     void setUp() {
         results.clear();
-        retryQueue.startDequeueing();
+        concurrentIOBoundTaskQueue.startDequeueing();
     }
 
     @AfterEach
     void tearDown() throws ExecutionException, InterruptedException, TimeoutException {
-        retryQueue.stopDequeueing();
+        concurrentIOBoundTaskQueue.stopDequeueing();
     }
 
     @Test
     void put() throws InterruptedException {
         final Callable<String> f = () -> "Success";
-        final RetryableBuilder<String> builder = new RetryableBuilder<>(f);
-        final Retryable<String> retryable = builder.setCallback(callback).build();
-        final boolean wasPut = retryQueue.offer(retryable);
+        final RetryableTaskBuilder<String> builder = new RetryableTaskBuilder<>(f);
+        final RetryableTask<String> task = builder.setCallback(callback).build();
+        final boolean wasPut = concurrentIOBoundTaskQueue.offer(task);
         assumeTrue(wasPut);
 
         final String result = results.poll(1, TimeUnit.SECONDS);
@@ -62,12 +62,12 @@ class RetryQueueTest {
         final Callable<String> f = () -> {
             throw(new Exception("Something is wrong!"));
         };
-        final RetryableBuilder<String> builder = new RetryableBuilder<>(f);
-        final Retryable<String> retryable = builder.setMaxRetries(3)
+        final RetryableTaskBuilder<String> builder = new RetryableTaskBuilder<>(f);
+        final RetryableTask<String> task = builder.setMaxRetries(3)
                 .setDelayOnRetyrMs(10)
                 .setCallback(callback)
                 .build();
-        final boolean wasPut = retryQueue.offer(retryable);
+        final boolean wasPut = concurrentIOBoundTaskQueue.offer(task);
         assumeTrue(wasPut);
 
         String result;
@@ -83,7 +83,7 @@ class RetryQueueTest {
 
     @Test
     void stop() throws ExecutionException, InterruptedException, TimeoutException {
-        assumeTrue(retryQueue.stopDequeueing());
+        assumeTrue(concurrentIOBoundTaskQueue.stopDequeueing());
     }
 
 }

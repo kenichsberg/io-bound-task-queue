@@ -1,19 +1,22 @@
-package com.github.kenichsberg.RetryQueue;
+package com.github.kenichsberg.IOBoundTaskQueue;
 
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.*;
 
-public class RetryQueue implements AutoDequeueingQueue<Retryable<?>> {
-    private final BlockingQueue<Retryable<?>> queue = new LinkedBlockingQueue<>();
+public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable> {
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final BlockingQueue<Runnable> queue;
+    private final Semaphore sem;
     private Future<?> dequeueingThreadFuture;
-    private Semaphore sem;
 
-    public RetryQueue() { }
+    public ConcurrentIOBoundTaskQueue() {
+        this(null);
+    }
 
-    public RetryQueue(int concurrentLimit) {
-        this.sem = new Semaphore(concurrentLimit);
+    public ConcurrentIOBoundTaskQueue(Integer concurrentExecutionLimit) {
+        this.queue = new LinkedBlockingQueue<>();
+        this.sem = (concurrentExecutionLimit == null) ?  null : new Semaphore(concurrentExecutionLimit);
     }
 
     /**
@@ -26,11 +29,8 @@ public class RetryQueue implements AutoDequeueingQueue<Retryable<?>> {
         dequeueingThreadFuture = executor.submit(() -> {
             while (!(Thread.currentThread().isInterrupted())) {
                 try {
-                    final Retryable<?> retryable = queue.take();
-                    if (sem != null) {
-                        retryable.setSemaphore(sem);
-                    }
-                    executor.submit(retryable);
+                    final Runnable task = queue.take();
+                    runTask(task);
 
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -42,6 +42,28 @@ public class RetryQueue implements AutoDequeueingQueue<Retryable<?>> {
         });
         return true;
     }
+
+
+    private void runTask(Runnable task) throws InterruptedException {
+        if (sem == null) {
+            executor.submit(task);
+            return;
+        }
+
+        executor.submit(() -> {
+            try {
+                sem.acquire();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            try {
+                executor.submit(task);
+            } finally {
+                sem.release();
+            }
+        });
+    }
+
 
     /**
      * @return boolean
@@ -64,42 +86,42 @@ public class RetryQueue implements AutoDequeueingQueue<Retryable<?>> {
     }
 
     /**
-     * @param retryable
+     * @param task
      * @throws InterruptedException
      */
     @Override
-    public void put(Retryable<?> retryable) throws InterruptedException {
-        queue.put(retryable);
+    public void put(Runnable task) throws InterruptedException {
+        queue.put(task);
     }
 
     /**
-     * @param retryable
+     * @param task
      * @return
      */
     @Override
-    public boolean add(Retryable<?> retryable) {
-        return queue.add(retryable);
+    public boolean add(Runnable task) {
+        return queue.add(task);
     }
 
     /**
-     * @param retryable
+     * @param task
      * @return
      */
     @Override
-    public boolean offer(Retryable<?> retryable) {
-        return queue.offer(retryable);
+    public boolean offer(Runnable task) {
+        return queue.offer(task);
     }
 
     /**
-     * @param retryable
+     * @param task
      * @param timeout
      * @param unit
      * @return
      * @throws InterruptedException
      */
     @Override
-    public boolean offer(Retryable<?> retryable, long timeout, TimeUnit unit) throws InterruptedException {
-        return queue.offer(retryable, timeout, unit);
+    public boolean offer(Runnable task, long timeout, TimeUnit unit) throws InterruptedException {
+        return queue.offer(task, timeout, unit);
     }
 
     /**
@@ -115,7 +137,7 @@ public class RetryQueue implements AutoDequeueingQueue<Retryable<?>> {
      * @return
      */
     @Override
-    public boolean addAll(Collection<? extends Retryable<?>> collection) {
+    public boolean addAll(Collection<? extends Runnable> collection) {
         return queue.addAll(collection);
     }
 
@@ -156,7 +178,7 @@ public class RetryQueue implements AutoDequeueingQueue<Retryable<?>> {
      * @return 
      */
     @Override
-    public Iterator<Retryable<?>> iterator() {
+    public Iterator<Runnable> iterator() {
         return queue.iterator();
     }
 
@@ -183,7 +205,7 @@ public class RetryQueue implements AutoDequeueingQueue<Retryable<?>> {
      * @return
      */
     @Override
-    public int drainTo(Collection<? super Retryable<?>> collection) {
+    public int drainTo(Collection<? super Runnable> collection) {
         return queue.drainTo(collection);
     }
 
@@ -193,7 +215,7 @@ public class RetryQueue implements AutoDequeueingQueue<Retryable<?>> {
      * @return
      */
     @Override
-    public int drainTo(Collection<? super Retryable<?>> collection, int i) {
+    public int drainTo(Collection<? super Runnable> collection, int i) {
         return queue.drainTo(collection, i);
     }
 

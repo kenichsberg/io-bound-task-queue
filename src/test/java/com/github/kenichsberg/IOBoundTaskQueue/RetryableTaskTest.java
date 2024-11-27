@@ -1,4 +1,4 @@
-package com.github.kenichsberg.RetryQueue;
+package com.github.kenichsberg.IOBoundTaskQueue;
 
 import org.junit.jupiter.api.*;
 import static org.junit.jupiter.api.Assumptions.*;
@@ -9,11 +9,11 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-class RetryableTest {
+class RetryableTaskTest {
     final BlockingQueue<String> acc = new LinkedBlockingQueue<>();
-    final RetryableCallback<String> callback = new RetryableCallback<>() {
+    final RetryableTaskCallback<String> callback = new RetryableTaskCallback<>() {
         @Override
-        public void onSuccess(Retryable<String> retryable, String result) {
+        public void onSuccess(RetryableTask<String> task, String result) {
             boolean isSuccess = result.equals("Success");
             if (isSuccess) {
                 try {
@@ -25,13 +25,13 @@ class RetryableTest {
         }
 
         @Override
-        public void onFailure(Retryable<String> retryable, Throwable throwable) {
+        public void onFailure(RetryableTask<String> task, Throwable throwable) {
             try {
                 acc.put(throwable.getMessage());
             } catch(InterruptedException e) {
                 System.out.println(e.getMessage());
             }
-            retryable.run();
+            task.run();
         }
     };
 
@@ -43,9 +43,9 @@ class RetryableTest {
     @Test
     void run() throws Exception {
         final Callable<String> f = () -> "Success";
-        final RetryableBuilder<String> builder = new RetryableBuilder<>(f);
-        final Retryable<String> retryable = builder.setCallback(callback).build();
-        retryable.run();
+        final RetryableTaskBuilder<String> builder = new RetryableTaskBuilder<>(f);
+        final RetryableTask<String> task = builder.setCallback(callback).build();
+        task.run();
 
         final String elem = acc.poll(1, TimeUnit.SECONDS);
         System.out.println(elem);
@@ -58,13 +58,13 @@ class RetryableTest {
         final Callable<String> f = () -> {
             throw(new Exception("Something is wrong!"));
         };
-        final RetryableBuilder<String> builder = new RetryableBuilder<>(f);
-        final Retryable<String> retryable = builder.setMaxRetries(3)
+        final RetryableTaskBuilder<String> builder = new RetryableTaskBuilder<>(f);
+        final RetryableTask<String> task = builder.setMaxRetries(3)
                 .setDelayOnRetyrMs(10)
                 .setCallback(callback)
                 .build();
         try {
-            retryable.run();
+            task.run();
         } catch(Exception e) {
             System.out.println(e.getMessage());
         }

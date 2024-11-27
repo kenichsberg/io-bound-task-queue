@@ -1,4 +1,4 @@
-package com.github.kenichsberg.RetryQueue;
+package com.github.kenichsberg.IOBoundTaskQueue;
 
 import java.util.Collection;
 import java.util.concurrent.*;
@@ -19,7 +19,7 @@ public interface AutoDequeueingQueue<E> extends BlockingQueue<E> {
     default E peek() {
         throw new UnsupportedOperationException("Not Supported");
     }
-    default E take() throws InterruptedException {
+    default E take() {
         throw new UnsupportedOperationException("Not Supported");
     }
     default boolean remove(Object o) {
