@@ -7,8 +7,8 @@ import java.lang.String;
 import java.util.Objects;
 import java.util.concurrent.*;
 
-class ConcurrentIOBoundTaskQueueTest {
-    ConcurrentIOBoundTaskQueue concurrentIOBoundTaskQueue = new ConcurrentIOBoundTaskQueue();
+class IOBoundTaskQueueTest {
+    IOBoundTaskQueue taskQueue = new IOBoundTaskQueue();
     final BlockingQueue<String> results = new LinkedBlockingQueue<>();
     final RetryableTaskCallback<String> callback = new RetryableTaskCallback<>() {
         @Override
@@ -27,7 +27,7 @@ class ConcurrentIOBoundTaskQueueTest {
         public void onFailure(RetryableTask<String> task, Throwable throwable) {
             try {
                 results.put(throwable.getMessage());
-                concurrentIOBoundTaskQueue.put(task);
+                taskQueue.put(task);
             } catch(InterruptedException e) {
                 System.out.println(e.getMessage());
             }
@@ -37,12 +37,12 @@ class ConcurrentIOBoundTaskQueueTest {
     @BeforeEach
     void setUp() {
         results.clear();
-        concurrentIOBoundTaskQueue.start();
+        taskQueue.start();
     }
 
     @AfterEach
     void tearDown() throws ExecutionException, InterruptedException, TimeoutException {
-        concurrentIOBoundTaskQueue.shutdown();
+        taskQueue.shutdown();
     }
 
     @Test
@@ -50,7 +50,7 @@ class ConcurrentIOBoundTaskQueueTest {
         final Callable<String> f = () -> "Success";
         final RetryableTaskBuilder<String> builder = new RetryableTaskBuilder<>(f);
         final RetryableTask<String> task = builder.setCallback(callback).build();
-        final boolean wasPut = concurrentIOBoundTaskQueue.offer(task);
+        final boolean wasPut = taskQueue.offer(task);
         assumeTrue(wasPut);
 
         final String result = results.poll(1, TimeUnit.SECONDS);
@@ -67,7 +67,7 @@ class ConcurrentIOBoundTaskQueueTest {
                 .setDelayOnRetyrMs(10)
                 .setCallback(callback)
                 .build();
-        final boolean wasPut = concurrentIOBoundTaskQueue.offer(task);
+        final boolean wasPut = taskQueue.offer(task);
         assumeTrue(wasPut);
 
         String result;
@@ -83,8 +83,8 @@ class ConcurrentIOBoundTaskQueueTest {
 
     @Test
     void stop() throws ExecutionException, InterruptedException, TimeoutException {
-        concurrentIOBoundTaskQueue.shutdown();
-        assumeTrue(concurrentIOBoundTaskQueue.dequeueingThreadFuture == null);
+        taskQueue.shutdown();
+        assumeTrue(taskQueue.dequeueingThreadFuture == null);
     }
 
 }

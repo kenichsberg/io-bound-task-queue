@@ -3,7 +3,7 @@ package com.github.kenichsberg.IOBoundTaskQueue;
 import java.util.Collection;
 import java.util.concurrent.*;
 
-public interface AutoDequeueingQueue<E> extends BlockingQueue<E> {
+public interface RunQueue<E> extends BlockingQueue<E> {
     void start() throws InterruptedException;
     void shutdown() throws InterruptedException, ExecutionException;
 

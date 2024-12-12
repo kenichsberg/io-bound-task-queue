@@ -8,17 +8,17 @@ import java.util.concurrent.*;
  * A concurrent queue designed for executing I/O-bound tasks with optional limits on concurrent execution.
  * Utilizes virtual threads for efficiency and supports task re-enqueuing when resources are unavailable.
  */
-public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable> {
+public class IOBoundTaskQueue implements RunQueue<Runnable> {
     protected final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     protected final BlockingQueue<Runnable> queue;
     protected final Semaphore sem;
     protected Future<?> dequeueingThreadFuture;
 
-    public ConcurrentIOBoundTaskQueue() {
+    public IOBoundTaskQueue() {
         this(null);
     }
 
-    public ConcurrentIOBoundTaskQueue(Integer concurrentExecutionLimit) {
+    public IOBoundTaskQueue(Integer concurrentExecutionLimit) {
         this.queue = new LinkedBlockingQueue<>();
         this.sem = (concurrentExecutionLimit == null) ?  null : new Semaphore(concurrentExecutionLimit);
     }
