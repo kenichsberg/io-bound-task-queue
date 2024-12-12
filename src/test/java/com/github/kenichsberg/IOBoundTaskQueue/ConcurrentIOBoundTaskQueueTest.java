@@ -37,12 +37,12 @@ class ConcurrentIOBoundTaskQueueTest {
     @BeforeEach
     void setUp() {
         results.clear();
-        concurrentIOBoundTaskQueue.startDequeueing();
+        concurrentIOBoundTaskQueue.start();
     }
 
     @AfterEach
     void tearDown() throws ExecutionException, InterruptedException, TimeoutException {
-        concurrentIOBoundTaskQueue.stopDequeueing();
+        concurrentIOBoundTaskQueue.shutdown();
     }
 
     @Test
@@ -83,7 +83,8 @@ class ConcurrentIOBoundTaskQueueTest {
 
     @Test
     void stop() throws ExecutionException, InterruptedException, TimeoutException {
-        assumeTrue(concurrentIOBoundTaskQueue.stopDequeueing());
+        concurrentIOBoundTaskQueue.shutdown();
+        assumeTrue(concurrentIOBoundTaskQueue.dequeueingThreadFuture == null);
     }
 
 }

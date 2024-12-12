@@ -5,11 +5,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class RetryableTaskBuilder<V> {
-    final private Callable<V> callable;
-    private ExecutorService callbackExecutor = Executors.newVirtualThreadPerTaskExecutor();
-    private long attemptsAvailable = 1;
-    private long delayOnRetryMs = 2000;
-    private RetryableTaskCallback<V> callback;
+    final protected Callable<V> callable;
+    protected ExecutorService callbackExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    protected long attemptsAvailable = 1;
+    protected long delayOnRetryMs = 2000;
+    protected RetryableTaskCallback<V> callback;
 
     public RetryableTaskBuilder(Callable<V> callable) {
         this.callable = callable;

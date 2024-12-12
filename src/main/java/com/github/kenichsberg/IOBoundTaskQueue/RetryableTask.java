@@ -6,10 +6,10 @@ import java.util.concurrent.ExecutorService;
 public class RetryableTask<V> implements Runnable {
     public final long delayOnRetryMs;
     public long attemptsAvailable;
-    private final Callable<V> callable;
-    private final RetryableTaskCallback<V> callback;
-    private final ExecutorService callbackExecutor;
-    private boolean isFirstAttempt;
+    protected final Callable<V> callable;
+    protected final RetryableTaskCallback<V> callback;
+    protected final ExecutorService callbackExecutor;
+    protected boolean isFirstAttempt;
 
     public RetryableTask(RetryableTaskBuilder<V> retryableTaskBuilder) {
         this.delayOnRetryMs = retryableTaskBuilder.getDelayOnRetryMs();

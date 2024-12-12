@@ -5,10 +5,10 @@ import java.util.Iterator;
 import java.util.concurrent.*;
 
 public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable> {
-    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
-    private final BlockingQueue<Runnable> queue;
-    private final Semaphore sem;
-    private Future<?> dequeueingThreadFuture;
+    protected final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    protected final BlockingQueue<Runnable> queue;
+    protected final Semaphore sem;
+    protected Future<?> dequeueingThreadFuture;
 
     public ConcurrentIOBoundTaskQueue() {
         this(null);
@@ -23,66 +23,78 @@ public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable>
      * @return
      */
     @Override
-    public synchronized boolean startDequeueing() {
-        if (dequeueingThreadFuture != null) return false;
+    public synchronized void start() {
+        if (dequeueingThreadFuture != null) return;
 
         dequeueingThreadFuture = executor.submit(() -> {
             while (!(Thread.currentThread().isInterrupted())) {
                 try {
-                    final Runnable task = queue.take();
+                    final Runnable task = queue.poll(1, TimeUnit.SECONDS);
+                    if (task == null) continue;
                     runTask(task);
 
                 } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    dequeueingThreadFuture = null;
+                    break;
                 } catch (Exception e) {
-                    System.out.println(e.getMessage());
+                    System.err.println("Exception occurred in dequeueing thread: " + e.getMessage());
+                    e.printStackTrace();
                 }
             }
         });
-        return true;
+        return;
     }
 
 
-    private void runTask(Runnable task) throws InterruptedException {
-        if (sem == null) {
-            executor.submit(task);
+    protected void runTask(Runnable task) {
+        if (sem != null && !sem.tryAcquire()) {
+            executor.submit(() -> {
+                try {
+                    Thread.sleep(3000);
+                    queue.put(task);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    System.err.println("Task re-enqueue interrupted: " + e.getMessage());                    System.err.println("Task re-enqueue interrupted: " + e.getMessage());                }
+            });
             return;
         }
 
-        executor.submit(() -> {
-            try {
-                sem.acquire();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            try {
-                executor.submit(task);
-            } finally {
-                sem.release();
-            }
-        });
+        try {
+            executor.submit(task);
+        } finally {
+            if (sem != null) sem.release();
+        }
+    }
+
+
+    @Override
+    public synchronized void shutdown() throws ExecutionException, InterruptedException, TimeoutException {
+        stopDequeueing();
+        executor.shutdown();
+        if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+            System.err.println("Executor did not terminate within timeout. Forcing shutdown.");
+            executor.shutdownNow();
+        }
     }
 
 
     /**
      * @return boolean
      */
-    @Override
-    public synchronized boolean stopDequeueing() throws ExecutionException, InterruptedException, TimeoutException {
-        if (dequeueingThreadFuture == null) return true;
-        if (dequeueingThreadFuture.cancel(true) || dequeueingThreadFuture.isDone()) {
+    protected synchronized void stopDequeueing() throws ExecutionException, InterruptedException, TimeoutException {
+        if (dequeueingThreadFuture == null) return;
+        dequeueingThreadFuture.cancel(true);
+
+        try {
+            dequeueingThreadFuture.get(10, TimeUnit.SECONDS);
+        } catch (CancellationException ignored) {
+            System.out.println("Dequeueing thread was canceled");
+        } catch (TimeoutException ignored) {
+            System.out.println("Could not terminate dequeueing thread until timeout");
+        } finally {
             dequeueingThreadFuture = null;
-            return true;
         }
 
-        dequeueingThreadFuture.get(3, TimeUnit.SECONDS);
-        if (dequeueingThreadFuture.isDone()) {
-            dequeueingThreadFuture = null;
-            return true;
-        }
-
-        return false;
+        return;
     }
 
     /**

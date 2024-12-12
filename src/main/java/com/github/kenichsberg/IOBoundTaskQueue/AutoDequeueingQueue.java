@@ -4,8 +4,8 @@ import java.util.Collection;
 import java.util.concurrent.*;
 
 public interface AutoDequeueingQueue<E> extends BlockingQueue<E> {
-    boolean startDequeueing() throws InterruptedException;
-    boolean stopDequeueing() throws InterruptedException, ExecutionException, TimeoutException;
+    void start() throws InterruptedException;
+    void shutdown() throws InterruptedException, ExecutionException, TimeoutException;
 
     default E remove() {
         throw new UnsupportedOperationException("Not Supported");
