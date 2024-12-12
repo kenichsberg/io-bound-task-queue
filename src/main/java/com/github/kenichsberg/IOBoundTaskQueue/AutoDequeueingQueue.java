@@ -5,7 +5,7 @@ import java.util.concurrent.*;
 
 public interface AutoDequeueingQueue<E> extends BlockingQueue<E> {
     void start() throws InterruptedException;
-    void shutdown() throws InterruptedException, ExecutionException, TimeoutException;
+    void shutdown() throws InterruptedException, ExecutionException;
 
     default E remove() {
         throw new UnsupportedOperationException("Not Supported");

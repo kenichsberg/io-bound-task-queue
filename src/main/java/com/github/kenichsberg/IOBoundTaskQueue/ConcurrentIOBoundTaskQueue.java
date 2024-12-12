@@ -4,6 +4,10 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.*;
 
+/**
+ * A concurrent queue designed for executing I/O-bound tasks with optional limits on concurrent execution.
+ * Utilizes virtual threads for efficiency and supports task re-enqueuing when resources are unavailable.
+ */
 public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable> {
     protected final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     protected final BlockingQueue<Runnable> queue;
@@ -19,8 +23,10 @@ public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable>
         this.sem = (concurrentExecutionLimit == null) ?  null : new Semaphore(concurrentExecutionLimit);
     }
 
+
     /**
-     * @return
+     * Starts dequeueing tasks from the queue and executing them asynchronously.
+     *
      */
     @Override
     public synchronized void start() {
@@ -41,10 +47,15 @@ public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable>
                 }
             }
         });
-        return;
     }
 
 
+    /**
+     * Executes a task, enforcing concurrency limits if applicable.
+     * If the semaphore is unavailable, the task is re-enqueued after a delay.
+     *
+     * @param task the task to execute.
+     */
     protected void runTask(Runnable task) {
         if (sem != null && !sem.tryAcquire()) {
             executor.submit(() -> {
@@ -66,8 +77,14 @@ public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable>
     }
 
 
+    /**
+     * Shuts down the task queue and stops the dequeueing thread. Waits for active tasks to complete before shutting down.
+     *
+     * @throws ExecutionException if the dequeueing thread terminates with an exception.
+     * @throws InterruptedException if the shutdown process is interrupted.
+     */
     @Override
-    public synchronized void shutdown() throws ExecutionException, InterruptedException, TimeoutException {
+    public synchronized void shutdown() throws ExecutionException, InterruptedException {
         stopDequeueing();
         executor.shutdown();
         if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
@@ -78,9 +95,12 @@ public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable>
 
 
     /**
-     * @return boolean
+     * Stops the dequeueing thread gracefully.
+     *
+     * @throws ExecutionException if the thread terminates with an exception.
+     * @throws InterruptedException if the operation is interrupted.
      */
-    protected synchronized void stopDequeueing() throws ExecutionException, InterruptedException, TimeoutException {
+    protected synchronized void stopDequeueing() throws ExecutionException, InterruptedException {
         if (dequeueingThreadFuture == null) return;
         dequeueingThreadFuture.cancel(true);
 
@@ -93,22 +113,26 @@ public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable>
         } finally {
             dequeueingThreadFuture = null;
         }
-
-        return;
     }
 
+
     /**
-     * @param task
-     * @throws InterruptedException
+     * Adds a task to the queue, blocking if the queue is full.
+     *
+     * @param task the task to add.
+     * @throws InterruptedException if the thread is interrupted while waiting to add the task.
      */
     @Override
     public void put(Runnable task) throws InterruptedException {
         queue.put(task);
     }
 
+
     /**
-     * @param task
-     * @return
+     * Adds a task to the queue, throwing an exception if the queue is full.
+     *
+     * @param task the task to add.
+     * @return true if the task was added successfully.
      */
     @Override
     public boolean add(Runnable task) {
@@ -116,116 +140,80 @@ public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable>
     }
 
     /**
-     * @param task
-     * @return
+     * Adds a task to the queue if space is available.
+     *
+     * @param task the task to add.
+     * @return true if the task was added, false otherwise.
      */
     @Override
     public boolean offer(Runnable task) {
         return queue.offer(task);
     }
 
+
     /**
-     * @param task
-     * @param timeout
-     * @param unit
-     * @return
-     * @throws InterruptedException
+     * Attempts to add a task to the queue, waiting for space to become available within the timeout period.
+     *
+     * @param task the task to add.
+     * @param timeout the maximum time to wait.
+     * @param unit the time unit of the timeout argument.
+     * @return true if the task was added, false otherwise.
+     * @throws InterruptedException if interrupted while waiting.
      */
     @Override
     public boolean offer(Runnable task, long timeout, TimeUnit unit) throws InterruptedException {
         return queue.offer(task, timeout, unit);
     }
 
-    /**
-     * @return 
-     */
+
     @Override
     public int remainingCapacity() {
         return queue.remainingCapacity();
     }
 
-    /**
-     * @param collection 
-     * @return
-     */
+
     @Override
     public boolean addAll(Collection<? extends Runnable> collection) {
         return queue.addAll(collection);
     }
 
-    /**
-     * @param o
-     * @return
-     */
-    @Override
-    public boolean equals(Object o) {
-        return queue.equals(o);
-    }
 
-    /**
-     * @return
-     */
-    @Override
-    public int hashCode() {
-        return queue.hashCode();
-    }
-
-    /**
-     * @return 
-     */
     @Override
     public int size() {
         return queue.size();
     }
 
-    /**
-     * @return 
-     */
+
     @Override
     public boolean isEmpty() {
         return queue.isEmpty();
     }
 
-    /**
-     * @return 
-     */
+
     @Override
     public Iterator<Runnable> iterator() {
         return queue.iterator();
     }
 
-    /**
-     * @return 
-     */
+
     @Override
     public Object[] toArray() {
         return queue.toArray();
     }
 
-    /**
-     * @param ts 
-     * @param <T>
-     * @return
-     */
+
     @Override
     public <T> T[] toArray(T[] ts) {
         return queue.toArray(ts);
     }
 
-    /**
-     * @param collection 
-     * @return
-     */
+
     @Override
     public int drainTo(Collection<? super Runnable> collection) {
         return queue.drainTo(collection);
     }
 
-    /**
-     * @param collection 
-     * @param i
-     * @return
-     */
+
     @Override
     public int drainTo(Collection<? super Runnable> collection, int i) {
         return queue.drainTo(collection, i);
