@@ -4,34 +4,38 @@ A task queue implementation with a flexible retry functionality.
 
 Requires JDK >21, since it uses Virtual Threads to execute each task.
 
-Each queue element is supposed to be an IO-bound task and is automatically dequeued and executed.
+Each queue element is supposed to be a `Runnable` object and is automatically dequeued and executed.
 
 ## Example
 ```java
 // Without Semaphore
-ConcurrentIOBoundTaskQueue concurrentIOBoundTaskQueue = new ConcurrentIOBoundTaskQueue();
+final IOBoundTaskQueue taskQueue = new IOBoundTaskQueue();
 
-// With Semaphore
-ConcurrentIOBoundTaskQueue concurrentIOBoundTaskQueueWithSemaphore = new ConcurrentIOBoundTaskQueue(100);
+//// With Semaphore
+// final IOBoundTaskQueue taskQueueWithSemaphore = new IOBoundTaskQueue(100);
 
+// init
+taskQueue.start();
 
-final Runnable task = () -> MyTask.run(); // IO-bound task
+// given IO-bound task
+final Runnable task = () -> MyTask.run();
         
 // .put()
-concurrentIOBoundTaskQueue.put(task);
+taskQueue.put(task);
 
 // .offer()
-concurrentIOBoundTaskQueue.offer(task, 500, TimeUnit.MILLISECONDS);
+taskQueue.offer(task, 500, TimeUnit.MILLISECONDS);
 ```
 
 ## With retries
-`RetryableTask` can be used to retry tasks.
+`RetryableTask` is available to retry tasks.
 
 In `OnSuccess` and `OnFailure` of `RetryableTaskCallback`, the first parameter is the `RetryableTask` itself which is being executed.
 You can rerun it on arbitrary conditions as you define.
 
 ```java
 final Callable<String> callable = () -> "Success";
+
 final RetryableTaskCallback<String> callback = new RetryableTaskCallback<>() {
     @Override
     public void onSuccess(RetryableTask<String> task, String result) {
@@ -42,7 +46,7 @@ final RetryableTaskCallback<String> callback = new RetryableTaskCallback<>() {
     public void onFailure(RetryableTask<String> task, Throwable throwable) {
         try {
             // retry via queue
-            concurrentIOBoundTaskQueue.put(task);
+            taskQueue.put(task);
         } catch(Exception e) {
             // ... do something
         }
@@ -50,11 +54,13 @@ final RetryableTaskCallback<String> callback = new RetryableTaskCallback<>() {
 };
 
 final RetryableTaskBuilder<String> builder = new RetryableTaskBuilder<>(callable);
-final RetryableTask<String> task = builder.setMaxRetries(3)
-        .setDelayOnRetyrMs(2000)
-        .setCallback(callback)
-        .build();
+
+final RetryableTask<String> task =
+        builder.setMaxRetries(3)
+                .setDelayOnRetyrMs(2000)
+                .setCallback(callback)
+                .build();
 
 
-concurrentIOBoundTaskQueue.put(task);
+taskQueue.put(task);
 ```
