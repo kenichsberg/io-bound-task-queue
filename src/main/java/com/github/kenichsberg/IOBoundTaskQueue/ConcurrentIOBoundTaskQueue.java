@@ -64,7 +64,8 @@ public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable>
                     queue.put(task);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    System.err.println("Task re-enqueue interrupted: " + e.getMessage());                    System.err.println("Task re-enqueue interrupted: " + e.getMessage());                }
+                    System.err.println("Task re-enqueue interrupted: " + e.getMessage());
+                }
             });
             return;
         }
@@ -138,6 +139,7 @@ public class ConcurrentIOBoundTaskQueue implements AutoDequeueingQueue<Runnable>
     public boolean add(Runnable task) {
         return queue.add(task);
     }
+
 
     /**
      * Adds a task to the queue if space is available.
